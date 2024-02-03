@@ -1,0 +1,178 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+
+</head>
+
+<body >
+            <table><tr><td>
+                <video id="video"></video>
+                </td><td>
+                <video id="video2"></video>
+            </td></tr></table>
+            <div id="line1">ほげ</div>
+            <div id="line2">ほげ</div>
+<img id="photo" style="display:none"> 
+</body>
+
+<style>
+    body{
+        background-color: black;
+        width:100%;
+    }
+    table{
+        width:100%;
+        padding:0px;
+        margin:0px;
+    }
+    td{
+        padding:0px;
+        margin:0px;
+
+    }
+    video{
+        width:100%;
+    }
+    .line1{
+        position: absolute;
+        left:25%;
+        top:50%;
+        color:white;
+
+        z-index: 0;
+    }
+    .line2{
+        position: absolute;
+        left:75%;
+        top:50%;
+        color:white;
+
+        z-index: 0;
+    }
+</style>
+<script>
+const video = document.querySelector('#video');
+const video2 = document.querySelector('#video2');
+const canvas = document.createElement('canvas');
+
+apikey="sk-ここにAPIキーを入れてください"
+async function postData(url = "", data = {}) {
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer "+apikey,
+        },
+        body: JSON.stringify(data),
+    });
+    return response.json();
+}
+
+
+initVideoCamera();
+initPhoto();
+
+/**
+ * ビデオのカメラ設定(デバイスのカメラ映像をビデオに表示)
+ */
+function initVideoCamera() {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then((stream) => {
+            console.log(stream)
+            video.srcObject = stream;
+            video.play();
+            video2.srcObject = stream;
+            video2.play();
+        })
+        .catch(e => console.log(e));
+}
+async function getDevices() {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    console.log(devices);
+  }
+/**
+ * 写真の初期描画
+ */
+function initPhoto() {
+    getDevices();
+
+    canvas.width = video.clientWidth;
+    canvas.height = video.clientHeight;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#AAA";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    document.querySelector("#photo").src = canvas.toDataURL("image/png");
+}
+
+/**
+ * 写真の撮影描画
+ */
+function photoShoot() {
+    let drawSize = calcDrawSize();
+    canvas.width = drawSize.width;
+    canvas.height = drawSize.height;
+    const context = canvas.getContext("2d");
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    data= canvas.toDataURL("image/png");
+
+    document.querySelector("#photo").src = canvas.toDataURL("image/png");
+    return data
+}
+
+send=()=>{
+    data=photoShoot();
+    console.log("photoShoot");
+
+
+    var input = {
+        "model": "gpt-4-vision-preview",
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": //"この画像をかっこよく簡潔に説明して"
+                 "この画像にかっこいいキャッチフレーズをつけてください"
+                //"この人たちが盛り上がるような掛け声をかけてください"    
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": data
+                }
+              }
+            ]
+          }
+        ],
+        "max_tokens": 300
+    }
+    
+    postData("https://api.openai.com/v1/chat/completions", input).then((data) => {
+        console.log(data.choices[0].message.content)
+        const uttr = new SpeechSynthesisUtterance(data.choices[0].message.content);
+        speechSynthesis.speak(uttr)
+    });
+    window.setTimeout(send,10000);
+    
+
+}
+window.setTimeout(send,5000);
+
+/**
+ * 描画サイズの計算
+ * 縦横比が撮影(video)が大きい時は撮影の縦基準、それ以外は撮影の横基準で計算
+ */
+function calcDrawSize() {
+    let videoRatio = video.videoHeight / video.videoWidth;
+    let viewRatio = video.clientHeight / video.clientWidth;
+    return videoRatio > viewRatio ?
+        { height: video.clientHeight, width: video.clientHeight / videoRatio }
+        : { height: video.clientWidth * videoRatio, width: video.clientWidth }
+}
+
+
+</script>
+</html>
