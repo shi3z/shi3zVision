@@ -1,0 +1,246 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="manifest" href="./manifest.json">
+    <style>
+        body{
+            position: absolute;
+            left:0px;
+            top:0px;
+            background-color: black;
+            width:100%;
+            margin:0px;
+        }
+        table{
+            border-spacing:0px;
+            width:100%;
+            padding:0px;
+            margin:0px;
+            z-index: 10;
+        }
+        td{
+            width:1278px;
+            height:1179px;
+            padding:0px;
+            margin:0px;
+    
+        }
+        video{
+        }
+        #line1{
+            position: absolute;
+            font-color:white;
+            top:20px;
+            left:0px;
+    
+            z-index: 0;
+        }
+        #line2{
+            position: absolute;
+            left:75%;
+            top:20px;
+            font-color:white;
+    
+            z-index: 0;
+        }
+        p.blocktext {
+            font-size:10px
+            margin-left: auto;
+            margin-right: auto;
+            width: 8em
+        }
+        #maincanvas{
+            position: absolute;
+            left:0px;
+            top:0px;
+            z-index: 0;
+        }
+        #btn{
+            position: absolute;
+            left:0px;
+            top:600px;
+            z-index: 0;   
+        }
+</style>
+</head>
+
+<body >
+    <video id="video" muted  autoplay playsinline  ></video>
+    <canvas id="maincanvas"></canvas> 
+    <div id="line1"><font color=white><p class="blocktext" id="message1">Thinking...</p></font></div>
+    <img id="photo" style="display:none"> 
+    <button id=btn onClick="speakSwitch();">AI Begin</button>
+    <table><tr><td>
+      </td><td>
+  </td></tr></table>
+</body>
+
+<script>
+
+// 音声読み上げスイッチ
+function speakSwitch() {
+  let speakMsg = new SpeechSynthesisUtterance('AI起動します');
+  speakMsg.lang = 'ja-JP';
+  speakMsg.rate = 1.0;
+  window.speechSynthesis.speak(speakMsg);
+  document.querySelector('#btn').style.display = 'none';
+}
+
+const video = document.querySelector('#video');
+const line1 = document.querySelector('#line1');
+const canvas = document.querySelector('#maincanvas');
+const message1 = document.querySelector('#message1');
+
+function setMessage(message){
+    message1.innerHTML = message;
+}
+
+async function postData(url = "", data = {}) {
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer sk-APIキーを入れてください",
+        },
+        body: JSON.stringify(data),
+    });
+    return response.json();
+}
+
+window.setTimeout(()=>{
+    line1.style.left = "10px";
+    line1.style.width = window.innerWidth/2+"px";
+
+},2000)
+
+initVideoCamera();
+initPhoto();
+
+/**
+ * ビデオのカメラ設定(デバイスのカメラ映像をビデオに表示)
+ */
+function initVideoCamera() {
+    const constraints = { audio: false, video: {
+        // 任意の値を入れます。記述方法は多々あるので詳しくはドキュメントを参照してください
+        // Facetime HDカメラはHD画質までなので、1270に設定しています
+        // iPhoneであれば4032まで可能です
+        width: 1920,
+        // iPhoneなどの場合にenvironmentだとバックカメラ、userだとフロントカメラになります
+        facingMode: "environment"
+      }}
+
+      navigator.mediaDevices.getUserMedia(constraints)
+        .then(function(stream) {
+          const video = document.querySelector('video');
+          video.srcObject = stream
+          video.onloadedmetadata = function(e) {
+            //video.width=100;
+            video.play();
+          };
+        })
+        .catch(function(err) {
+          console.log(err.name + ": " + err.message);
+        });
+
+    /*navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then((stream) => {
+            console.log(stream)
+            video.srcObject = stream;
+            video.play();
+            video2.srcObject = stream;
+            video2.play();
+
+        })
+        .catch(e => console.log(e));
+        */
+}
+async function getDevices() {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    console.log(devices);
+  }
+/**
+ * 写真の初期描画
+ */
+function initPhoto() {
+    getDevices();
+
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#AAA";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    document.querySelector("#photo").src = canvas.toDataURL("image/png");
+}
+
+
+const TO_RADIANS = Math.PI/180;
+
+window.onload=()=>{
+  const screenWidth=1920;
+  const screenHeight=1080;
+  const context = canvas.getContext("2d");
+  drawPreview=()=>{
+        var dx = (video.videoWidth-video.videoHeight)/2;
+        console.log( video.videoHeight-dx,video.videoHeight,dx)
+        console.log(screenWidth,screenHeight);
+        context.drawImage(video, 
+              //dx, 0, video.videoHeight-dx, video.videoHeight,    
+              //0,0,video.videoWidth,video.videoHeight,
+              0, 0, screenWidth, screenHeight);
+       
+  }      
+  window.setInterval(drawPreview,50);
+}
+send=()=>{
+    data= canvas.toDataURL("image/png");
+    console.log("photoShoot");
+
+
+    var input = {
+        "model": "gpt-4-vision-preview",
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": //"この画像をかっこよく簡潔に説明して"
+                 //"この画像にかっこいいキャッチフレーズをつけてください"
+                 "画像に指が入っていれば、この画像で指さされているものについて説明しなさい。"+
+                 "または、この画像に写っているものの中で最も重要度の高いものを一言で形容詞と名刺だけで教えてください。"+
+                 "人間であれば、男性か女性か、職業は何か、服装はどんな感じか、年齢はどれくらいか、怒っているか笑っているか、性格まで推定して答えてください。"+
+                 "また、どんな場所にいるのかも簡潔に説明しなさい"+
+                 "日本語で。ですますなどの語尾は必要ありません。"+
+                 "「指が写っていない」「わからない」「不明」などのことは一切言わないこと。簡潔に20文字以内で説明すること。"
+                 //"この画像を見ている人が気をつけるべきことを一言で教えてください。ですますなどの語尾は必要ありません。名詞一つでお願いします。"
+                //"この人たちが盛り上がるような掛け声をかけてください"    
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": data
+                }
+              }
+            ]
+          }
+        ],
+        "max_tokens": 300
+    }
+    
+    postData("https://api.openai.com/v1/chat/completions", input).then((data) => {
+        console.log(data.choices[0].message.content)
+        const uttr = new SpeechSynthesisUtterance(data.choices[0].message.content);
+        speechSynthesis.speak(uttr)
+        setMessage(data.choices[0].message.content);
+    });
+    window.setTimeout(send,10000);
+    
+
+}
+window.setTimeout(send,5000);
+
+
+</script>
+</html>
